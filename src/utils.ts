@@ -30,8 +30,6 @@ export interface IAPNG {
 }
 
 export class Frame implements IFrame {
-    public frameChunks?: Uint8Array[] = [];
-
     constructor(
         public top: number,
         public left: number,
@@ -47,7 +45,6 @@ export class Frame implements IFrame {
     }
 }
 
-
 export class APNG implements IAPNG {
     constructor(
         public width: number,
@@ -60,10 +57,6 @@ export class APNG implements IAPNG {
 
 export const createApng = (): APNG => new APNG(0, 0, 0, 0, []);
 export const createFrame = (): Frame => new Frame(0, 0, 0, 0, 0, 0, 0, 0, 0, new Uint8Array);
-
-export const options: Object = {
-
-}
 
 export function readInt32(buffer: Uint8Array, offset: number): number {
     return (buffer[offset] << 24) | (buffer[offset + 1] << 16) | (buffer[offset + 2] << 8) | (buffer[offset + 3] >>> 0);
@@ -92,7 +85,7 @@ export function getChunkType(buffer: Uint8Array, offset: number): string {
 
 
 export function uint32ToUint8Array(value: number): Uint8Array {
-    const arr = new Uint8Array(4);
+    const arr = new Uint8Array(4)
     new DataView(arr.buffer).setUint32(0, value);
     return arr;
 }
@@ -147,9 +140,9 @@ export function concatUint8Arrays(arrays: Array<Uint8Array>) {
     const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
     const result = new Uint8Array(totalLength);
     let offset = 0;
-    for (const arr of arrays) {
-        result.set(arr, offset);
-        offset += arr.length;
+    for (let i = 0; i < arrays.length; i++) {
+        result.set(arrays[i], offset);
+        offset += arrays[i].length;
     }
     return result;
 }
