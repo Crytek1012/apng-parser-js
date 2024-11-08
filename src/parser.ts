@@ -6,10 +6,10 @@ import {
     getChunkType,
     createChunk,
     uint32ToUint8Array,
-    PNG_SIGNATURE,
     readInt16,
     readInt32,
-    concatUint8Arrays
+    concatUint8Arrays,
+    PNG_SIGNATURE,
 } from './utils.js'
 
 
@@ -18,24 +18,24 @@ import {
  * @param buffer the buffer of the file
  * @returns
  */
-export default function apngParser(buffer: Buffer | Uint8Array): APNG {
+export default function apngParser(buffer: Uint8Array): APNG {
 
-    const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
-
+    const bytes = buffer;
     const maxLength = Math.min(PNG_SIGNATURE.length, bytes.length);
     for (let i = 0; i < maxLength; i++) {
         if (bytes[i] !== PNG_SIGNATURE[i]) {
-            throw new Error('Invalid PNG Signature.');
+            throw new Error('Invalid PNG Signature. This is either not an APNG or the buffer has been corrupted.');
         }
     }
 
     let offset = 8;
     const apng = createApng();
-    let headerBytes = new Uint8Array(13);
     let frame = null;
+    const dataChunks: Uint8Array[][] = [[]];
 
-    const metadataChunks = [];
-    const trailerChunks = [];
+    const headerBytes = new Uint8Array(13);
+    const metadataChunks: Uint8Array[] = [];
+    const trailerChunks: Uint8Array[] = [];
 
     while (offset < bytes.length) {
         const chunkLength = readInt32(bytes, offset);
@@ -44,7 +44,7 @@ export default function apngParser(buffer: Buffer | Uint8Array): APNG {
 
         switch (chunkType) {
             case ChunkTypes.IHDR:
-                headerBytes.set(chunk); // Directly set header bytes
+                headerBytes.set(chunk);
                 apng.width = readInt32(chunk, 0);
                 apng.height = readInt32(chunk, 4);
                 break;
@@ -55,9 +55,13 @@ export default function apngParser(buffer: Buffer | Uint8Array): APNG {
                 break;
 
             case ChunkTypes.fcTL:
+
                 if (frame) {
                     apng.frames.push(frame);
+                    dataChunks.push([]);
                 }
+
+
                 frame = createFrame();
                 frame.width = readInt32(chunk, 4);
                 frame.height = readInt32(chunk, 8);
@@ -70,15 +74,14 @@ export default function apngParser(buffer: Buffer | Uint8Array): APNG {
 
                 frame.disposeOp = chunk[24];
                 frame.blendOp = chunk[25];
-                frame.frameChunks = [];
                 if (apng.frames.length === 0 && frame.disposeOp === 2) frame.disposeOp = 1;
                 break;
 
             case ChunkTypes.IDAT:
+                dataChunks[dataChunks.length - 1].push(chunk)
+                break;
             case ChunkTypes.fdAT:
-                if (frame && frame.frameChunks) {
-                    frame.frameChunks.push(chunk.subarray(chunkType === ChunkTypes.fdAT ? 4 : 0));
-                }
+                dataChunks[dataChunks.length - 1].push(chunk.subarray(4))
                 break;
 
             case ChunkTypes.IEND:
@@ -97,28 +100,26 @@ export default function apngParser(buffer: Buffer | Uint8Array): APNG {
         apng.frames.push(frame);
     }
 
-    if (apng.frames.length === 0) throw new Error('Failed to extract APNG frames.');
+    if (apng.frames.length === 0) throw new Error('Failed to extract APNG frames. Could not find any IDAT or FdAT chunks.');
 
+    let chunkIndex = 0;
     for (const frame of apng.frames) {
-        const uint8ArrayBuffer: Uint8Array[] = [PNG_SIGNATURE];
+        const bufferArray: Uint8Array[] = [PNG_SIGNATURE]
 
         headerBytes.set(uint32ToUint8Array(frame.width), 0);
         headerBytes.set(uint32ToUint8Array(frame.height), 4);
-        uint8ArrayBuffer.push(createChunk('IHDR', headerBytes));
-        uint8ArrayBuffer.push(...metadataChunks);
 
-        if (frame.frameChunks) {
-            frame.frameChunks.forEach(unit => {
-                uint8ArrayBuffer.push(createChunk('IDAT', unit));
-            });
-        }
+        bufferArray.push(createChunk('IHDR', headerBytes));
+        bufferArray.push(...metadataChunks);
 
-        uint8ArrayBuffer.push(...trailerChunks);
-        frame.imageData = concatUint8Arrays(uint8ArrayBuffer);;
-        delete frame.frameChunks;
+        dataChunks[chunkIndex].forEach(unit => {
+            bufferArray.push(createChunk('IDAT', unit));
+        });
+        chunkIndex += 1;
+
+        bufferArray.push(...trailerChunks);
+        frame.imageData = concatUint8Arrays(bufferArray);
     }
 
     return apng;
 }
-
-
