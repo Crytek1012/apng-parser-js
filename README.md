@@ -21,7 +21,26 @@ npm install apng-parser-js
 
 ## Usage
 
-Here’s a quick example of how to use the `apng-parser-js`:
+CommonJs:
+
+```javascript
+const { readFileSync } = require('fs');
+const apngParser = require('apng-parser-js');
+
+async function parseAPNG(filePath) {
+    const buffer = readFileSync(filePath);
+    try {
+        const apng = apngParser(buffer);
+        console.log(apng);
+    } catch (err) {
+        console.error('Error parsing APNG:', err);
+    }
+}
+
+parseAPNG('path/to/your/file.png');
+```
+
+Import:
 
 ```javascript
 import { readFileSync } from 'fs';
@@ -42,7 +61,7 @@ parseAPNG('path/to/your/file.png');
 
 ## API
 
-### `apngParser(buffer: Buffer | Uint8Array): <APNG>`
+### `apngParser(buffer: Uint8Array): <APNG>`
 
 Parses the provided APNG buffer and returns an object containing the metadata of the APNG file.
 
@@ -69,8 +88,8 @@ Parses the provided APNG buffer and returns an object containing the metadata of
       "delayNum": 0,
       "delayDen": 0,
       "delay": 100,
-      "dispose": 1,
-      "blend": 0,
+      "disposeOp": 1,
+      "blendOp": 0,
       "imageData": [Uint8Array]
     },
     // More frames...
