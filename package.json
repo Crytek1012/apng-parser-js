@@ -1,6 +1,6 @@
 {
   "name": "apng-parser-js",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A parser for APNG files.",
   "type": "commonjs",
   "main": "dist/index.js",
