@@ -50,8 +50,8 @@ export default function apngParser(buffer: Uint8Array): APNG {
                 break;
 
             case ChunkTypes.acTL:
-                apng.frameCount = readInt32(chunk, 8);
-                apng.loopCount = readInt32(chunk, 12);
+                apng.frameCount = readInt32(chunk, 0);
+                apng.loopCount = readInt32(chunk, 4);
                 break;
 
             case ChunkTypes.fcTL:
