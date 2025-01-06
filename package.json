@@ -1,6 +1,6 @@
 {
   "name": "apng-parser-js",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "A parser for APNG files.",
   "type": "commonjs",
   "main": "dist/index.js",
@@ -10,11 +10,11 @@
     "@types/**/*",
     "README.md"
   ],
-   "repository": {
+  "repository": {
     "type": "git",
     "url": "https://github.com/Crytek1012/apng-parser-js"
   },
-    "bugs": {
+  "bugs": {
     "url": "https://github.com/Crytek1012/apng-parser-js/issues"
   },
   "homepage": "https://github.com/Crytek1012/apng-parser-js#readme",
