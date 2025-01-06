@@ -26,18 +26,6 @@ CommonJs:
 ```javascript
 const { readFileSync } = require('fs');
 const apngParser = require('apng-parser-js');
-
-async function parseAPNG(filePath) {
-    const buffer = readFileSync(filePath);
-    try {
-        const apng = apngParser(buffer);
-        console.log(apng);
-    } catch (err) {
-        console.error('Error parsing APNG:', err);
-    }
-}
-
-parseAPNG('path/to/your/file.png');
 ```
 
 Import:
@@ -45,7 +33,11 @@ Import:
 ```javascript
 import { readFileSync } from 'fs';
 import apngParser from 'apng-parser-js';
+```
 
+Parse an APNG:
+
+```javascript
 async function parseAPNG(filePath) {
     const buffer = readFileSync(filePath);
     try {
@@ -59,14 +51,34 @@ async function parseAPNG(filePath) {
 parseAPNG('path/to/your/file.png');
 ```
 
+Optionally,  the ```raw``` parameter can be used to retrieve each frame's raw image data:
+
+```javascript
+const apng = apngParser(buffer, {raw: true});
+```
+
+You can directly save the frames by using the ```APNG``` method ```saveFrames()```:
+
+```javascript
+apng.saveFrames('path-to-your-folder');
+```
+
+Or save a specifc frame by using the ```Frame``` method ```save()```:
+
+```javascript
+const frame = apng.frames[0];
+frame.save('path-to-your-folder');
+```
+
 ## API
 
-### `apngParser(buffer: Uint8Array): <APNG>`
+### `apngParser(buffer: Uint8Array, options): <APNG>`
 
 Parses the provided APNG buffer and returns an object containing the metadata of the APNG file.
 
 #### Parameters
 - `buffer`: A Buffer containing the binary data of the APNG file.
+- `options`: The apngParser options
 
 #### Returns
 - A Promise that resolves to an object containing the APNG metadata.
@@ -93,7 +105,8 @@ Parses the provided APNG buffer and returns an object containing the metadata of
       "imageData": [Uint8Array]
     },
     // More frames...
-  ]
+  ],
+  isRaw: false
 }
 ```
 
