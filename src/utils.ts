@@ -1,3 +1,6 @@
+import { writeFileSync } from 'fs';
+import { inflate } from 'zlib';
+
 export const PNG_SIGNATURE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 export enum ChunkTypes {
@@ -6,73 +9,87 @@ export enum ChunkTypes {
     fcTL = 'fcTL',
     fdAT = 'fdAT',
     IDAT = 'IDAT',
-    IEND = 'IEND'
+    IEND = 'IEND',
+    PLTE = 'PLTE'
 }
 
-export interface IFrame {
-    top: number,
-    left: number,
-    width: number;
-    height: number;
-    delayNum: number;
-    delayDen: number;
-    delay: number;
-    disposeOp: number;
-    blendOp: number;
+export enum FilterTypes {
+    None = 0,
+    Sub = 1,
+    Up = 2,
+    Average = 3,
+    Paeth = 4
 }
 
-export interface IAPNG {
-    width: number;
-    height: number;
-    frameCount: number;
-    loopCount: number;
-    frames: Frame[]
-}
-
-export class Frame implements IFrame {
+export class Frame {
     constructor(
-        public top: number,
-        public left: number,
-        public width: number,
-        public height: number,
-        public delayNum: number,
-        public delayDen: number,
-        public delay: number,
-        public disposeOp: number,
-        public blendOp: number,
-        public imageData: Uint8Array,
-    ) {
+        public top: number = 0,
+        public left: number = 0,
+        public width: number = 0,
+        public height: number = 0,
+        public delayNum: number = 0,
+        public delayDen: number = 0,
+        public delay: number = 0,
+        public disposeOp: number = 0,
+        public blendOp: number = 0,
+        public imageData: Uint8Array = new Uint8Array()
+    ) { }
+
+    save(path: string) {
+        if (!path) throw new Error('A valid path must be provided!');
+        writeFileSync(`${path}/frame.png`, Buffer.from(this.imageData))
     }
 }
 
-export class APNG implements IAPNG {
+export class APNG {
+
+    public isRaw: Boolean = false;
+
     constructor(
-        public width: number,
-        public height: number,
-        public frameCount: number,
-        public loopCount: number,
-        public frames: Frame[]
+        public width: number = 0,
+        public height: number = 0,
+        public bitDepth: number = 0,
+        public colorType: number = 0,
+        public compressionMethod: number = 0,
+        public filterMethod: number = 0,
+        public interlaceMethod: number = 0,
+        public palette: Uint8Array = new Uint8Array(0),
+        public frameCount: number = 0,
+        public loopCount: number = 0,
+        public frames: Frame[] = []
     ) { }
+
+    parsePalette() {
+        const colors: number[][] = [];
+        for (let i = 0; i < this.palette.length; i += 3) {
+            const r = this.palette[i];
+            const g = this.palette[i + 1];
+            const b = this.palette[i + 2];
+            colors.push([r, g, b]);
+        }
+
+        return colors;
+    }
+
+    saveFrames(path: string) {
+        if (!path) throw new Error('A valid path must be provided!')
+
+        for (let i = 0; i < this.frames.length; i++) {
+            writeFileSync(`${path}/frame_${i}.png`, this.frames[i].imageData)
+        }
+    }
 }
 
-export const createApng = (): APNG => new APNG(0, 0, 0, 0, []);
-export const createFrame = (): Frame => new Frame(0, 0, 0, 0, 0, 0, 0, 0, 0, new Uint8Array);
+export const defaultParserOptions = {
+    raw: false
+}
 
-export function readInt32(buffer: Uint8Array, offset: number): number {
+export function readUInt32(buffer: Uint8Array, offset: number): number {
     return (buffer[offset] << 24) | (buffer[offset + 1] << 16) | (buffer[offset + 2] << 8) | (buffer[offset + 3] >>> 0);
 }
 
-export function readInt16(buffer: Uint8Array, offset: number): number {
+export function readUInt16(buffer: Uint8Array, offset: number): number {
     return (buffer[offset] << 8) | (buffer[offset + 1] >>> 0);
-}
-
-export function getSequenceNumber(buffer: Uint8Array) {
-    return (
-        (buffer[0] << 24) |
-        (buffer[1] << 16) |
-        (buffer[2] << 8) |
-        (buffer[3])
-    )
 }
 
 export function getChunkType(buffer: Uint8Array, offset: number): string {
