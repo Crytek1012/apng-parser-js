@@ -2,3 +2,4 @@ node_modules/
 @types/
 dist/
 tests_output/
+test.ts
