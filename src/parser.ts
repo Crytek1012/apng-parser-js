@@ -1,139 +1,105 @@
-import {
-    APNG,
-    ChunkTypes,
-    getChunkType,
-    createChunk,
-    uint32ToUint8Array,
-    readUInt16,
-    readUInt32,
-    concatUint8Arrays,
-    PNG_SIGNATURE,
-    Frame,
-    defaultParserOptions
-} from './utils.js'
+import { APNG } from './structures/apng';
+import { Frame, IFrameData } from './structures/frame';
+import { ChunkType, PNG_SIGNATURE, isApng } from './util/constants';
 
+export default function apngParser(buffer: Buffer): APNG {
+    if (!isApng(buffer)) throw new Error('Invalid APNG buffer.');
 
-/**
- * Parses an APNG buffer and returns its metadata
- * @param buffer the buffer of the file
- * @returns
- */
-export default function apngParser(buffer: Uint8Array, options = defaultParserOptions): APNG {
+    const apng = new APNG();
+    const dataChunks: Buffer[][] = [[]];
+    let currentFrame: IFrameData | null = null;
+    let offset = PNG_SIGNATURE.length;
 
-    const bytes = buffer;
-    const maxLength = Math.min(PNG_SIGNATURE.length, bytes.length);
-    for (let i = 0; i < maxLength; i++) {
-        if (bytes[i] !== PNG_SIGNATURE[i]) {
-            throw new Error('Invalid PNG Signature. This is either not an APNG or the buffer has been corrupted.');
-        }
-    }
+    let palette: Buffer | null = null;
+    let transparency: Buffer | null = null;
 
-    let offset = 8;
-    const apng = new APNG()
-    let frame = null;
-    const dataChunks: Uint8Array[][] = [[]];
+    while (offset < buffer.length) {
+        const length = buffer.readUInt32BE(offset);
+        const type = buffer.toString('ascii', offset + 4, offset + 8);
+        const chunk = buffer.subarray(offset + 8, offset + 8 + length);
 
-    const headerBytes = new Uint8Array(13);
-    const metadataChunks: Uint8Array[] = [];
-    const trailerChunks: Uint8Array[] = [];
-
-    while (offset < bytes.length) {
-        const chunkLength = readUInt32(bytes, offset);
-        const chunkType = getChunkType(bytes, offset);
-        const chunk = bytes.subarray(offset + 8, offset + 8 + chunkLength);
-
-        switch (chunkType) {
-            case ChunkTypes.IHDR:
-                headerBytes.set(chunk);
-                apng.width = readUInt32(chunk, 0);
-                apng.height = readUInt32(chunk, 4);
-                apng.bitDepth = chunk[8]
-                apng.colorType = chunk[9]
-                apng.compressionMethod = chunk[10]
-                apng.filterMethod = chunk[11]
-                apng.interlaceMethod = chunk[12]
+        switch (type) {
+            case ChunkType.IHDR:
+                apng.width = chunk.readUInt32BE(0);
+                apng.height = chunk.readUInt32BE(4);
+                apng.bitDepth = chunk[8];
+                apng.colorType = chunk[9];
+                apng.compressionMethod = chunk[10];
+                apng.filterMethod = chunk[11];
+                apng.interlaceMethod = chunk[12];
                 break;
 
-            case ChunkTypes.acTL:
-                apng.frameCount = readUInt32(chunk, 0);
-                apng.loopCount = readUInt32(chunk, 4);
+            case ChunkType.acTL:
+                apng.frameCount = chunk.readUInt32BE(0);
+                apng.loopCount = chunk.readUInt32BE(4);
+                break;
+
+            case ChunkType.PLTE:
+                if (chunk.length > 0) {
+                    palette = chunk;
+                    apng.palette = palette;
+                }
                 break;
 
 
-            case ChunkTypes.PLTE:
-                apng.palette = chunk;
-                if (!options.raw) metadataChunks.push(bytes.subarray(offset, offset + 12 + chunkLength));
+            case ChunkType.tRNS:
+                if (chunk.length > 0) {
+                    transparency = chunk;
+                    apng.transparency = chunk;
+                }
                 break;
 
-            case ChunkTypes.fcTL:
-                if (frame) {
-                    apng.frames.push(frame);
+            case ChunkType.fcTL:
+                if (currentFrame) {
+                    apng.frames.push(new Frame(currentFrame));
                     dataChunks.push([]);
                 }
 
-                frame = new Frame()
-                frame.width = readUInt32(chunk, 4);
-                frame.height = readUInt32(chunk, 8);
-                frame.left = readUInt32(chunk, 12);
-                frame.top = readUInt32(chunk, 16);
+                currentFrame = {
+                    width: chunk.readUInt32BE(4),
+                    height: chunk.readUInt32BE(8),
+                    left: chunk.readUInt32BE(12),
+                    top: chunk.readUInt32BE(16),
+                    delayNum: chunk.readUInt16BE(20),
+                    delayDen: chunk.readUInt16BE(22) || 100,
+                    disposeOp: chunk[24],
+                    blendOp: chunk[25],
+                    data: Buffer.alloc(0),
+                    palette,
+                    transparency,
+                    bitDepth: apng.bitDepth,
+                    colorType: apng.colorType,
+                };
 
-                const delayNum = readUInt16(chunk, 20);
-                const delayDem = readUInt16(chunk, 22) || 100;
-                frame.delay = Math.max((delayNum / delayDem) * 1000, 100);
-
-                frame.disposeOp = chunk[24];
-                frame.blendOp = chunk[25];
-                if (apng.frames.length === 0 && frame.disposeOp === 2) frame.disposeOp = 1;
+                if (apng.frames.length === 0 && currentFrame.disposeOp === 2) currentFrame.disposeOp = 1;
                 break;
 
-            case ChunkTypes.IDAT:
-                dataChunks[dataChunks.length - 1].push(chunk)
-                break;
-            case ChunkTypes.fdAT:
-                dataChunks[dataChunks.length - 1].push(chunk.subarray(4))
+            case ChunkType.IDAT:
+                dataChunks[dataChunks.length - 1].push(chunk);
                 break;
 
-            case ChunkTypes.IEND:
-                trailerChunks.push(bytes.subarray(offset, offset + 12 + chunkLength));
+            case ChunkType.fdAT:
+                dataChunks[dataChunks.length - 1].push(chunk.subarray(4));
                 break;
 
             default:
-                metadataChunks.push(bytes.subarray(offset, offset + 12 + chunkLength));
                 break;
         }
 
-        offset += 8 + chunkLength + 4;
+        offset += 8 + length + 4;
     }
 
-    if (frame) {
-        apng.frames.push(frame);
+    if (currentFrame) apng.frames.push(new Frame(currentFrame));
+    if (!apng.frames.length || !dataChunks.some(chunks => chunks.length > 0)) {
+        throw new Error('No APNG frames or image data extracted');
     }
 
-    if (apng.frames.length === 0) throw new Error('Failed to extract APNG frames. Could not find any IDAT or FdAT chunks.');
+    for (let i = 0; i < apng.frames.length; i++) {
+        const frame = apng.frames[i];
+        const frameData = Buffer.concat(dataChunks[i] || []);
+        if (frameData.length === 0) throw new Error(`No image data for frame ${i}`);
 
-    let chunkIndex = 0;
-    if (options.raw) {
-        apng.isRaw = true;
-        apng.frames.forEach((frame, i) => frame.imageData = concatUint8Arrays(dataChunks[i]))
-    }
-    else {
-        for (const frame of apng.frames) {
-            const bufferArray: Uint8Array[] = [PNG_SIGNATURE]
-
-            headerBytes.set(uint32ToUint8Array(frame.width), 0);
-            headerBytes.set(uint32ToUint8Array(frame.height), 4);
-
-            bufferArray.push(createChunk('IHDR', headerBytes));
-            bufferArray.push(...metadataChunks);
-
-            dataChunks[chunkIndex].forEach(unit => {
-                bufferArray.push(createChunk('IDAT', unit));
-            });
-            chunkIndex += 1;
-
-            bufferArray.push(...trailerChunks);
-            frame.imageData = concatUint8Arrays(bufferArray);
-        }
+        frame.data = frameData
     }
 
     return apng;
