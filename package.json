@@ -1,6 +1,6 @@
 {
   "name": "apng-parser-js",
-  "version": "1.0.6",
+  "version": "2.0.0",
   "description": "A parser for APNG files.",
   "type": "commonjs",
   "main": "dist/index.js",
@@ -19,7 +19,7 @@
   },
   "homepage": "https://github.com/Crytek1012/apng-parser-js#readme",
   "scripts": {
-    "build": "tsc",
+    "build": "npx tsc && node dist/test.js",
     "test": "echo \"No tests specified\" && exit 0"
   },
   "keywords": [
