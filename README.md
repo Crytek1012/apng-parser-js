@@ -38,23 +38,8 @@ import apngParser from 'apng-parser-js';
 Parse an APNG:
 
 ```javascript
-async function parseAPNG(filePath) {
-    const buffer = readFileSync(filePath);
-    try {
-        const apng = apngParser(buffer);
-        console.log(apng);
-    } catch (err) {
-        console.error('Error parsing APNG:', err);
-    }
-}
-
-parseAPNG('path/to/your/file.png');
-```
-
-Optionally,  the ```raw``` parameter can be used to retrieve each frame's raw image data:
-
-```javascript
-const apng = apngParser(buffer, {raw: true});
+const buffer = readFileSync(filePath);
+const apng = apngParser(buffer);
 ```
 
 You can directly save the frames by using the ```APNG``` method ```saveFrames()```:
@@ -70,43 +55,47 @@ const frame = apng.frames[0];
 frame.save('path-to-your-folder');
 ```
 
-## API
+You can retrieve the raw pixel data by using the method `.getRGBA`
 
-### `apngParser(buffer: Uint8Array, options): <APNG>`
-
-Parses the provided APNG buffer and returns an object containing the metadata of the APNG file.
-
-#### Parameters
-- `buffer`: A Buffer containing the binary data of the APNG file.
-- `options`: The apngParser options
-
-#### Returns
-- A Promise that resolves to an object containing the APNG metadata.
+```javascript
+const frame = apng.frames[0];
+const rgba = frame.getRGBA();
+```
 
 ### Example Response
 
 ```json
-{
-  "width": 300,
-  "height": 300,
-  "frameCount": 4,
-  "loopCount": 0,
-  "frames": [
-    {
-      "top": 0,
-      "left": 0,
-      "width": 300,
-      "height": 300,
-      "delayNum": 0,
-      "delayDen": 0,
-      "delay": 100,
-      "disposeOp": 1,
-      "blendOp": 0,
-      "imageData": [Uint8Array]
+APNG {
+  width: 320,
+  height: 320,
+  bitDepth: 8,
+  colorType: 3,
+  compressionMethod: 0,
+  filterMethod: 0,
+  interlaceMethod: 0,
+  palette: <Buffer 36 39 3f 00 00 00 38 33 45 d7 a4 8c 46 3e 44 02 02 02 c5 14 04 3c 36 49 cf 9f 68 3a 35 48 35 35 35 39 34 46 f1 c7 78 05 05 06 0a 09 0b 22 22 23 0d 0c ... 718 more bytes>,
+  transparency: <Buffer 00>,
+  frameCount: 11,
+  loopCount: 0,
+  frames: [
+    Frame {
+      width: 320,
+      height: 320,
+      left: 0,
+      top: 0,
+      delayNum: 3,
+      delayDen: 100,
+      disposeOp: 1,
+      blendOp: 0,
+      bitDepth: 8,
+      colorType: 3,
+      transparency: <Buffer 00>,
+      palette: <Buffer 36 39 3f 00 00 00 38 33 45 d7 a4 8c 46 3e 44 02 02 02 c5 14 04 3c 36 49 cf 9f 68 3a 35 48 35 35 35 39 34 46 f1 c7 78 05 05 06 0a 09 0b 22 22 23 0d 0c ... 718 more bytes>,
+      data: <Buffer 78 da ed 7d 77 74 54 f7 9d 2f 23 e9 32 1a 0d 77 7a b1 1a 23 69 66 24 a1 82 46 1e 15 46 bd d2 0d 46 b2 91 ad 42 10 06 1b 21 10 dd 20 d1 bb 29 a6 99 6e ... 17994 more bytes>,
+      rgba: null
     },
-    // More frames...
-  ],
-  isRaw: false
+    // other frames
+  ]
 }
 ```
 
